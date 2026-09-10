@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Cowrie runtime data
+var/log/cowrie/
+var/lib/cowrie/downloads/
+*.log
+
+# SQLite temporary files
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Streamlit local settings
+.streamlit/secrets.toml
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
