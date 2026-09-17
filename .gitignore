@@ -9,6 +9,7 @@ venv/
 # Environment and secrets
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 
@@ -16,6 +17,13 @@ venv/
 var/log/cowrie/
 var/lib/cowrie/downloads/
 *.log
+# 로컬 시험 때 여기에 Cowrie 호스트 키(ssh_host_*_key)가 생김
+sensor/var/
+
+# 수집 데이터, GeoIP, DB 덤프
+data/
+*.mmdb
+*.sql.gz
 
 # SQLite temporary files
 *.db-journal
@@ -30,3 +38,9 @@ var/lib/cowrie/downloads/
 .idea/
 .DS_Store
 Thumbs.db
+
+# AI tools
+.claude/
+CLAUDE.md
+.cursorrules
+.aider*
