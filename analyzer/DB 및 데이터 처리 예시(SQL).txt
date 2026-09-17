@@ -1,0 +1,11 @@
+예) 테이블 스키마에 custom_id 컬럼 추가
+ALTER TABLE honeypot.commands ADD COLUMN custom_id TEXT;
+
+custom_id 업데이트 (cmd_hash 기준)
+UPDATE honeypot.commands
+SET custom_id = cmd_hash;
+
+복합키 생성시 (예, 해시 함수 이용)
+UPDATE honeypot.commands
+SET custom_id = encode(digest(cmd_hash || session_id || to_char(timestamp, 'YYYYMMDDHH24MISS'), 'md5'), 'hex');
+

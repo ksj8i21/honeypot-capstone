@@ -1,0 +1,26 @@
+예시
+WITH filtered_sessions AS (
+    SELECT
+        s.session_id,
+        s.login_status,
+        c.cmd_hash,
+        c.command_sequence,
+        MIN(s.timestamp) AS first_timestamp
+    FROM honeypot.sessions s
+    JOIN honeypot.commands c ON s.session_id = c.session_id
+    WHERE s.login_status = 'success'                     -- 로그인 성공 세션
+      AND c.cmd_hash IS NOT NULL                         -- cmd_hash 존재
+      AND c.cmd_hash NOT IN (                             -- 이미 분석된 cmd_hash 제외
+          SELECT cmd_hash FROM honeypot.ai_analysis
+      )
+    GROUP BY s.session_id, s.login_status, c.cmd_hash, c.command_sequence
+    HAVING COUNT(c.command_sequence) >= 1                -- 1개 이상 명령어 포함
+)
+SELECT DISTINCT ON (cmd_hash)
+       session_id,
+       cmd_hash,
+       command_sequence,
+       first_timestamp
+FROM filtered_sessions
+ORDER BY cmd_hash, first_timestamp
+LIMIT 1000;  -- 하루 처리량 제한
