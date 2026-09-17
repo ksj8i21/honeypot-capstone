@@ -1,0 +1,9 @@
+[Unit]
+Description=S3 백업 야간 실행
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

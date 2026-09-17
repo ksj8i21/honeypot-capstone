@@ -1,0 +1,9 @@
+[Unit]
+Description=지난 Cowrie 로그 압축
+
+[Service]
+Type=oneshot
+User=999
+Group=999
+# 7일이면 분석 서버가 이미 당겨간 뒤. 수집 쪽 rsync 는 *.gz 를 exclude 할 것
+ExecStart=/usr/bin/find /opt/cowrie/var/log/cowrie -maxdepth 1 -name cowrie.json.* ! -name *.gz -mtime +7 -exec gzip {} +

@@ -1,0 +1,9 @@
+[Unit]
+Description=자동 배포 5분 주기
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

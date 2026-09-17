@@ -1,0 +1,11 @@
+[Unit]
+Description=main 브랜치 자동 배포
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/honeypot
+ExecStart=/opt/honeypot/deploy/update.sh
+TimeoutStartSec=10min

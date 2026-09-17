@@ -1,0 +1,12 @@
+[Unit]
+Description=원본 로그 + DB 덤프 S3 백업
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/honeypot
+EnvironmentFile=/opt/honeypot/.env
+ExecStart=/opt/honeypot/deploy/backup.sh
+TimeoutStartSec=1h

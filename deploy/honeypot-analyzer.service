@@ -1,0 +1,12 @@
+[Unit]
+Description=AI 위협분석 배치
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/honeypot
+EnvironmentFile=/opt/honeypot/.env
+ExecStart=/opt/honeypot/.venv/bin/python -m analyzer.run_nightly
+TimeoutStartSec=4h

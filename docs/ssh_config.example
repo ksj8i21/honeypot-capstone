@@ -1,0 +1,8 @@
+# 각자 ~/.ssh/config (윈도우: C:\Users\<이름>\.ssh\config) 에 붙여넣기
+# DB 는 Supabase 라 5432 터널은 필요 없음. 대시보드(8501)만 터널로 본다
+
+Host honeypot-analysis
+    HostName <분석서버 IP — 메신저로 따로 받음>
+    Port 62222
+    User ubuntu
+    LocalForward 8501 localhost:8501

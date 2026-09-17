@@ -1,0 +1,15 @@
+[Unit]
+Description=Streamlit 대시보드
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/honeypot
+EnvironmentFile=/opt/honeypot/.env
+ExecStart=/opt/honeypot/.venv/bin/streamlit run dashboard/app.py --server.address=127.0.0.1 --server.port=8501
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

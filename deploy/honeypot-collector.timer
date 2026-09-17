@@ -1,0 +1,10 @@
+[Unit]
+Description=수집 1시간 주기
+
+[Timer]
+OnBootSec=5min
+# 앞 실행이 끝난 시점부터 1시간. rsync 가 길어져도 다음 게 겹쳐 뜨지 않음
+OnUnitActiveSec=1h
+
+[Install]
+WantedBy=timers.target

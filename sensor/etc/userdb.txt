@@ -1,0 +1,19 @@
+# ASCII only. Cowrie reads this with encoding="ascii" - any Korean text here fails the load.
+# No inline comments: "root:x:123456  # note" makes the password "123456  # note".
+# First matching line wins, so deny rules (!) must come before any wildcard for the same user.
+#
+# SSH brute-force set
+root:x:!root
+root:x:123456
+root:x:admin
+ubuntu:x:ubuntu
+admin:x:*
+#
+# Telnet / IoT default credentials
+root:x:vizxv
+root:x:xc3511
+root:x:888888
+root:x:xmhdipc
+root:x:juantech
+support:x:support
+ubnt:x:ubnt

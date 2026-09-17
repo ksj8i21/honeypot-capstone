@@ -1,0 +1,11 @@
+[Unit]
+Description=AI 배치 야간 실행
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# 03:00 에 서버가 꺼져 있었으면 부팅 후 보충 실행
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
