@@ -1,9 +1,0 @@
-예시
-{
-  "custom_id": "abc123def456",
-  "cmd_hash": "abc123",
-  "intent": "코인채굴",
-  "severity": 4,
-  "summary": "코인채굴 공격 의심",
-  ...
-}
