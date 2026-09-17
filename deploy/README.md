@@ -1,7 +1,7 @@
 # deploy — 분석 서버 유닛
 
 분석 서버에서만 씁니다. 센서 쪽 파일은 `sensor/` 에 있습니다.
-DB 는 Supabase 입니다. 분석 서버에는 PostgreSQL 서버를 설치하지 않고 `postgresql-client`(pg_dump 용)만 둡니다.
+DB 는 Supabase 입니다. 분석 서버에는 DB 를 설치하지 않고, 코드가 `supabase-py` + `.env` 의 secret 키로 접속합니다.
 
 ## 처음 한 번
 
@@ -32,11 +32,11 @@ sudo systemctl enable --now honeypot-collector.timer honeypot-analyzer.timer \
 |---|---|---|
 | honeypot-collector | 1시간 (앞 실행 종료 기준) | 센서 2대 Pull → 파싱 → Supabase 적재 → GeoIP |
 | honeypot-analyzer | 매일 03:00 | AI 배치 |
-| backup-s3 | 매일 04:00 | 원본 로그 sync + honeypot 스키마 pg_dump → S3 |
+| backup-s3 | 매일 04:00 | 원본 로그 sync → S3 |
 | honeypot-update | 5분 | origin/main 자동 배포 |
 | honeypot-dashboard | 상시 | Streamlit (127.0.0.1:8501) |
 
-DB 덤프를 백업에 넣은 건 Supabase Free 플랜에 자동 백업이 없어서입니다. Pro 로 가면 빼도 됩니다.
+DB 는 따로 백업하지 않습니다. S3 의 원본 로그로 collector 를 다시 돌리면 재구성됩니다 (upsert 라 중복 없음).
 
 ## 자동 배포
 
