@@ -250,7 +250,7 @@
   준비
     - 저장소 루트 .env
         SUPABASE_URL=...
-        SUPABASE_SECRET_KEY=...      (① 에게 개인 메시지로 받기)
+        SUPABASE_SECRET_KEY=...      (Supabase 조직 초대 후 Settings → API Keys 에서 직접 발급)
         ANTHROPIC_API_KEY=...        (팀 API 키. 채팅방에 올리지 말 것)
     - pip install -r requirements.txt
 
