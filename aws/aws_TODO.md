@@ -54,7 +54,13 @@ aws ec2 run-instances --region ap-northeast-2 \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=sensor-seoul}]'
 ```
 
-- `CpuCredits=standard` — T 계열 unlimited 초과 과금 방지
+- `CpuCredits=standard` — **T4g 는 기본이 unlimited 라 그냥 두면 크레딧 소진 후 초과분이 추가 과금된다.**
+  standard 면 돈이 더 나가는 대신 기준선 성능으로 느려지기만 한다 (t4g.micro 기준선 vCPU 당 10%, small 20%)
+  - 콘솔로 만들 때: 인스턴스 시작 → **고급 세부 정보 → 크레딧 사양** 에서 Standard 선택
+  - 리전 기본값을 아예 바꿔두면 CLI 로 만드는 인스턴스에 자동 적용 (콘솔 마법사는 선택값이 우선)
+    `aws ec2 modify-default-credit-specification --region ap-northeast-2 --instance-family t4g --cpu-credits standard`
+  - 이미 만든 인스턴스: 콘솔 → 작업 → 인스턴스 설정 → 크레딧 사양 변경 (중지 안 해도 됨)
+  - 확인: `aws ec2 describe-instance-credit-specifications --instance-id <i-...>` → `standard`
 - `HttpPutResponseHopLimit=1` — 컨테이너(홉 +1)에서 IMDS 토큰을 못 받게. 센서는 IAM 역할도 없음
 - 분석 서버는 `t4g.medium`(또는 예산안 C/Supabase 안이면 `t4g.small`), 볼륨 크기는 예산안 따라, `--iam-instance-profile` 로 S3 쓰기 역할
 - 센서·분석 서버 모두 **탄력적 IP** 를 붙인다. 중지/시작 때 IP 가 바뀌면 SG·.env·Supabase 허용목록이 다 깨짐. 요금은 자동 할당 공인 IP 와 같음
@@ -79,6 +85,20 @@ aws cloudwatch put-metric-alarm --region ap-northeast-2 \
 
 NetworkOut 도 같은 형식. 디스크 사용률은 기본 지표에 없고 CloudWatch Agent 를 깔아야 나온다.
 Agent 까지는 안 하고 주간 점검 때 센서에서 `df -h` 를 손으로 본다 (TODO: 4주차에 로그 증가 속도 보고 다시 판단).
+
+## 5-1. 청구 시점과 증빙
+
+AWS 는 후불이다. 한 달 치를 다 쓴 뒤 **다음 달 초**에 인보이스가 나오고 등록된 카드로 자동 결제된다.
+학교 결제 제한 기간(26일~말일)과는 겹치지 않는다.
+
+```
+9/1~9/30 사용   →   10월 초 인보이스 발행 + 카드 결제
+```
+
+- 매월 1~2일에 콘솔 → Billing → Bills → Invoices 에서 PDF 를 받아둔다. 25일 정산 마감에 쫓기지 않게
+- ★ **마지막 달 사용분은 그 다음 달 초에 청구된다.** 12월까지 켜두면 1월 초에 청구서가 나오는데,
+  학교 예산 집행이 12월에 끝나면 정산할 방법이 없다 → **11월 말에 인스턴스를 종료**해 마지막 청구를 12월 초로 끝낸다
+- 법인카드로 AWS 자동결제를 등록하는 것이 학교 절차상 가능한지 첫 달에 조교와 합의할 것
 
 ## 6. S3 ★
 
