@@ -32,6 +32,15 @@ reload_sshd() {
 
 listening() { ss -Htln "sport = :$1" | grep -q .; }
 
+# var 를 통째로 바인드 마운트해서 이미지 안의 하위 폴더가 가려짐. tty 가 없으면 셸 열 때마다
+# FileNotFoundError 로 세션이 빈 화면에서 멈췄음 (10-03 Termius 시험)
+make_var_dirs() {
+    install -d -m 755 -o 999 -g 999 \
+        "$COWRIE_DIR/var" "$COWRIE_DIR/var/log/cowrie" "$COWRIE_DIR/var/lib/cowrie" \
+        "$COWRIE_DIR/var/lib/cowrie/tty" "$COWRIE_DIR/var/lib/cowrie/downloads" \
+        "$COWRIE_DIR/var/lib/cowrie/snapshots" "$COWRIE_DIR/var/run"
+}
+
 step_base() {
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-v2 rsync
@@ -63,8 +72,7 @@ step_cowrie() {
     listening 22 && die "sshd 가 아직 22 를 잡고 있음. /etc/ssh/sshd_config 의 Port 줄 확인"
 
     install -d -m 755 "$COWRIE_DIR"
-    install -d -m 755 -o 999 -g 999 \
-        "$COWRIE_DIR/var" "$COWRIE_DIR/var/log/cowrie" "$COWRIE_DIR/var/lib/cowrie"
+    make_var_dirs
     rm -rf "$COWRIE_DIR/etc"
     cp -r "$HERE/etc" "$COWRIE_DIR/etc"
     cp "$HERE/docker-compose.yml" "$COWRIE_DIR/"
@@ -110,6 +118,7 @@ step_ami_clean() {
     (cd "$COWRIE_DIR" && docker compose down)
     # 서울 로그가 버지니아 쪽에 섞이고, 같은 호스트 키면 스캐너가 같은 운영자로 묶음
     rm -rf "$COWRIE_DIR"/var/log/cowrie/* "$COWRIE_DIR"/var/lib/cowrie/*
+    make_var_dirs
     echo "이 상태로 AMI 생성. 서울 센서는 다시 올릴 것: cd $COWRIE_DIR && sudo docker compose up -d"
     echo "버지니아 인스턴스에서도 첫 기동 후 docker compose up -d (호스트 키는 Cowrie 가 새로 만듦)"
 }
