@@ -23,7 +23,10 @@ git reset --hard "$after" --quiet
 
 .venv/bin/pip install -q -r requirements.txt
 
-# collector·analyzer 는 oneshot 이라 다음 타이머 실행 때 새 코드로 돈다. 대시보드만 재시작
-sudo systemctl restart honeypot-dashboard
+# collector·analyzer 는 oneshot 이라 다음 타이머 실행 때 새 코드로 돈다. 대시보드만 재시작.
+# 유닛이 아직 없으면 restart 가 exit 5 (Unit not found) 였음 (10-04). set -e 라 배포가 failed 로 끝나서 있을 때만
+if systemctl cat honeypot-dashboard >/dev/null 2>&1; then
+    sudo systemctl restart honeypot-dashboard
+fi
 
 echo "배포 $(git log -1 --oneline)"
