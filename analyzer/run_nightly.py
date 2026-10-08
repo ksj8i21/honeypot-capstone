@@ -20,7 +20,7 @@ from supabase import create_client
 from analyzer.classify import collect_batch, submit_batch
 from analyzer.filter import pick_targets
 
-MAX_ROWS = 1000  # 하루 상한. 공격이 폭증해도 호출량이 같이 늘지 않게
+MAX_ROWS = 150  # 하루 상한. 공격이 폭증해도 호출량이 같이 늘지 않게
 
 # 저장소 루트 data/ (서버에서는 /opt/honeypot/data/). .gitignore 대상
 BATCH_ID_FILE = Path(__file__).resolve().parent.parent / "data" / "ai_batch_id.txt"
