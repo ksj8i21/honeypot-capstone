@@ -1,6 +1,7 @@
 """Batch 요청 만들기 / 결과 회수해서 ai_analysis 에 저장 (작업가이드 4-3, 4-4)."""
 
 import json
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,10 @@ PROMPT_PATH = Path(__file__).parent / "prompts" / "session_intent.md"
 # DB CHECK 제약과 같아야 함 (db/01_schema.sql)
 INTENTS = ["코인채굴", "봇넷가담", "정찰", "자격증명탈취", "랜섬웨어", "기타"]
 
+# 프롬프트에 금지라고 써 있었는데도 첫 배치 40건 중 4건이 "원격 서버(1.2.3.4)에서" 처럼 IP 를 넣었음 (10-08)
+# \b 로 하면 "1.2.3.4에서" 를 못 잡음 (숫자와 한글 사이엔 단어 경계가 없음)
+ADDR_RE = re.compile(r"(?:https?|ftp|tftp)://\S+|(?<![\d.])\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?(?![\d.])")
+
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -42,6 +47,11 @@ def load_prompt() -> str:
 def chunks(items: list[dict], size: int = CHUNK_SIZE) -> Iterator[list[dict]]:
     for i in range(0, len(items), size):
         yield items[i:i + size]
+
+
+def scrub_summary(text: str) -> str:
+    text = re.sub(rf"\s*\(\s*(?:{ADDR_RE.pattern})\s*\)", "", text)
+    return ADDR_RE.sub("외부 서버", text)
 
 
 def build_user_message(row: dict[str, Any]) -> str:
@@ -91,11 +101,14 @@ def parse_result(custom_id: str, msg) -> dict[str, Any] | None:
     if out.get("intent") not in INTENTS or out.get("severity") not in (1, 2, 3, 4, 5):
         print(f"[classify] {custom_id}: 스키마 밖 값 {out.get('intent')!r}/{out.get('severity')!r}, 건너뜀")
         return None
+    summary = scrub_summary(out.get("summary", ""))
+    if summary != out.get("summary", ""):
+        print(f"[classify] {custom_id}: summary 에 있던 주소를 '외부 서버'로 바꿈")
     return {
         "cmd_hash": custom_id,
         "intent": out["intent"],
         "severity": out["severity"],
-        "summary": out.get("summary", ""),
+        "summary": summary,
         "ttp": [str(t) for t in out.get("ttp", [])],
         "model": msg.model,
         "tokens_in": msg.usage.input_tokens,
