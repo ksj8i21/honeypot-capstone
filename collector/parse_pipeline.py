@@ -17,6 +17,8 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 
+from collector.normalize import compute_cmd_hash
+
 BATCH_SIZE = 500
 DEFAULT_LOG = Path(__file__).parent / "samples" / "sample_cowrie.json"
 EVENT_KEY = "sensor_id,session_id,eventid,ts"
@@ -60,6 +62,7 @@ def to_rows(events: list[dict], sensor_id: str) -> dict[str, list[dict]]:
     opened: dict[str, dict] = {}
     client: dict[str, dict] = {}
     closed: dict[str, dict] = {}
+    cmd_by_session: dict[str, list[str]] = {}
     rows: dict[str, list[dict]] = {"auth_attempts": [], "commands": [], "downloads": []}
 
     for ev in events:
@@ -91,6 +94,7 @@ def to_rows(events: list[dict], sensor_id: str) -> dict[str, list[dict]]:
                 "ts": ts,
             })
         elif eid in ("cowrie.command.input", "cowrie.command.failed"):
+            cmd_by_session.setdefault(sid, []).append(ev.get("input") or "")
             rows["commands"].append(key | {"eventid": eid, "input": ev.get("input") or "", "ts": ts})
         elif eid == "cowrie.session.file_download":
             rows["downloads"].append(key | {
@@ -99,6 +103,11 @@ def to_rows(events: list[dict], sensor_id: str) -> dict[str, list[dict]]:
                 "shasum": ev.get("shasum"),
                 "ts": ts,
             })
+
+    # closed 세션에 대한 cmd_hash 계산 및 채우기 (팀원 ③ AI 분석용)
+    for sid, row in closed.items():
+        cmds = cmd_by_session.get(sid, [])
+        row["cmd_hash"] = compute_cmd_hash(cmds) if cmds else None
 
     # merge upsert 는 같은 요청에 같은 키가 두 번 있으면 에러라서 세션당 1행으로 모음
     rows["sessions_open"] = list(opened.values())
