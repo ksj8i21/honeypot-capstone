@@ -1,0 +1,25 @@
+# 센서 2대에 동일하게. 로컬 PC 에서 시험할 때는 SSH_PORT=2222 TELNET_PORT=2223 으로 띄운다
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: cowrie
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${SSH_PORT:-22}:2222"
+      - "${TELNET_PORT:-23}:2223"
+    volumes:
+      - ./etc:/cowrie/cowrie-git/etc:ro
+      # 이미지가 999:999 로 돈다. 호스트 쪽 var 소유자를 999 로 맞춰야 로그가 써짐
+      - ./var:/cowrie/cowrie-git/var
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

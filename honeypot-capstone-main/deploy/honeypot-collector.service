@@ -1,0 +1,12 @@
+[Unit]
+Description=센서 로그 Pull, 파싱, GeoIP 보강
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/honeypot
+EnvironmentFile=/opt/honeypot/.env
+ExecStart=/opt/honeypot/.venv/bin/python -m collector.run
+TimeoutStartSec=40min

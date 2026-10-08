@@ -1,0 +1,8 @@
+# ASCII only: pip on Windows reads this file as cp949, Korean text breaks the install
+# 2.31: sb_secret_ keys pass (no JWT format check)
+supabase>=2.31
+python-dotenv>=1.0
+streamlit>=1.30
+pandas>=2.0
+plotly>=5.0
+anthropic

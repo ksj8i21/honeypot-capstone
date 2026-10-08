@@ -1,0 +1,9 @@
+[Unit]
+Description=Cowrie 로그 압축 매일
+
+[Timer]
+OnCalendar=*-*-* 05:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
