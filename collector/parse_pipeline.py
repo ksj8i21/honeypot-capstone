@@ -74,13 +74,14 @@ def to_rows(events: list[dict], sensor_id: str) -> dict[str, list[dict]]:
                 "start_ts": ts,
             }
         elif sid not in opened:
-            # 로그를 중간부터 읽으면 connect 가 없다. 첫 이벤트로 세션 행만 만들어 둠 (protocol 은 비어 있음)
-            opened[sid] = key | {"protocol": None, "src_ip": ev.get("src_ip"), "src_port": None, "start_ts": ts}
+            # 로그를 중간부터 읽으면 connect 가 없다. 첫 이벤트로 세션 행을 만듦 (protocol 이 있으면 채움)
+            opened[sid] = key | {"protocol": ev.get("protocol"), "src_ip": ev.get("src_ip"), "src_port": None, "start_ts": ts}
 
         if eid == "cowrie.client.version":
             client[sid] = key | {"client_version": ev.get("version")}
         elif eid == "cowrie.session.closed":
-            closed[sid] = key | {"end_ts": ts, "duration": ev.get("duration")}
+            duration = (ev["duration_ms"] / 1000.0) if "duration_ms" in ev else ev.get("duration")
+            closed[sid] = key | {"end_ts": ts, "duration": duration}
         elif eid in ("cowrie.login.success", "cowrie.login.failed"):
             rows["auth_attempts"].append(key | {
                 "eventid": eid,
