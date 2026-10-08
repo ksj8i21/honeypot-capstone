@@ -1,53 +1,30 @@
-from typing import List, Dict, Any
+"""분석 대상 고르기 (작업가이드 4-1). 조건은 db/02_ai_targets.sql 의 pick_ai_targets 함수에 있음.
+
+    python -m analyzer.filter          # 상위 10건 미리보기 (DB 만 읽음, API 호출 없음)
+"""
+
+import os
+from typing import Any
+
 from supabase import Client
 
 
-def fetch_ai_targets(sb: Client, max_rows: int = 1000) -> List[Dict[str, Any]]:
-    """
-    Supabase RPC 함수(pick_ai_targets)를 호출하여 AI 분석 대상 세션을 선별합니다.
-
-    :param sb: Supabase Client 객체
-    :param max_rows: 하루 처리 상한 개수 (기본값: 1000)
-    :return: 분석 대상 세션 정보 리스트
-             [{'cmd_hash': ..., 'protocol': ..., 'sensor_id': ..., 'session_id': ..., 'commands': ..., 'cluster_size': ...}, ...]
-    """
-    try:
-        # 가이드 4-1 명세에 맞추어 pick_ai_targets RPC 호출
-        res = sb.rpc("pick_ai_targets", {"max_rows": max_rows}).execute()
-        rows = res.data or []
-
-        # 데이터 검증: cmd_hash와 commands가 유효한 데이터만 필터링
-        valid_rows = []
-        for row in rows:
-            cmd_hash = row.get("cmd_hash")
-            commands = row.get("commands")
-
-            if not cmd_hash or not commands or not str(commands).strip():
-                continue
-
-            valid_rows.append(row)
-
-        print(f"[+] [filter.py] pick_ai_targets 조회 완료: 총 {len(valid_rows)}건의 분석 대상을 선별했습니다.")
-        return valid_rows
-
-    except Exception as e:
-        print(f"[-] [filter.py] 분석 대상 조회 중 오류가 발생했습니다: {e}")
-        raise e
+def pick_targets(sb: Client, max_rows: int) -> list[dict[str, Any]]:
+    rows = sb.rpc("pick_ai_targets", {"max_rows": max_rows}).execute().data or []
+    # cmd_hash 는 있는데 commands 행이 없는 세션은 보낼 내용이 없음
+    targets = [r for r in rows if r.get("cmd_hash") and str(r.get("commands") or "").strip()]
+    if len(targets) < len(rows):
+        print(f"[filter] 명령이 비어 있는 대상 {len(rows) - len(targets)}건 제외")
+    print(f"[filter] 분석 대상 {len(targets)}건")
+    return targets
 
 
 if __name__ == "__main__":
-    import os
+    from dotenv import load_dotenv
     from supabase import create_client
 
-    # 단독 테스트 실행 로직
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SECRET_KEY")
-
-    if not url or not key:
-        print("[-] SUPABASE_URL 또는 SUPABASE_SECRET_KEY 환경 변수가 설정되지 않아 테스트를 종료합니다.")
-    else:
-        sb_client = create_client(url, key)
-        targets = fetch_ai_targets(sb_client, max_rows=10)
-        print(f"\n[+] 테스트 조회 결과 ({len(targets)}건):")
-        for t in targets:
-            print(f" - [Hash: {t.get('cmd_hash', '')[:8]}...] Protocol: {t.get('protocol')}, Cluster Size: {t.get('cluster_size')}")
+    load_dotenv()
+    sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SECRET_KEY"])
+    for t in pick_targets(sb, max_rows=10):
+        print(f"{t['cmd_hash'][:12]}  {t.get('protocol')}  x{t.get('cluster_size')}  "
+              f"{str(t['commands']).splitlines()[0][:60]}")
