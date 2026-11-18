@@ -105,9 +105,8 @@ CREATE TABLE IF NOT EXISTS public.ai_analysis (
 CREATE INDEX IF NOT EXISTS ix_sessions_proto_ts ON public.sessions (protocol, start_ts);
 CREATE INDEX IF NOT EXISTS ix_sessions_cmdhash  ON public.sessions (cmd_hash);
 CREATE INDEX IF NOT EXISTS ix_sessions_src_ip   ON public.sessions (src_ip);
-CREATE INDEX IF NOT EXISTS ix_auth_session      ON public.auth_attempts (sensor_id, session_id);
 CREATE INDEX IF NOT EXISTS ix_auth_user_pass    ON public.auth_attempts (username, password);
-CREATE INDEX IF NOT EXISTS ix_commands_session  ON public.commands (sensor_id, session_id);
+-- (sensor_id, session_id) 인덱스는 따로 안 만든다. uq_auth·uq_cmd 가 같은 칼럼으로 시작해서 겹쳤고 둘이 18MiB 를 먹고 있었음 (05 에서 지움)
 
 
 -- public 은 Data API 로 공개되는 스키마다. SQL 로 만든 테이블은 RLS 가 꺼진 채 생겨서
