@@ -55,7 +55,7 @@ def is_mobile():
 
 def page_title(text):
     # 휴대폰 폭에서 제목이 '프로토콜별 비 / 교' 처럼 낱말 중간에서 끊겼다. 낱말 단위로만 줄바꿈하고 글자를 줄인다
-    st.html("<style>h1,h2,h3,p,li{word-break:keep-all!important}@media (max-width:640px){h1{font-size:1.9rem!important}}</style>")
+    st.html("<style>h1,h2,h3,p,li{word-break:keep-all!important}@media (max-width:640px){h1{font-size:1.7rem!important}}</style>")
     st.title(text)
 
 

@@ -157,8 +157,7 @@ with tab_pw:
         )
         fig_type.update_xaxes(tickangle=0, title=None)
         if is_mobile():
-            cats = [t for t in PW_TYPES if t in set(share["유형"])]
-            fig_type.update_xaxes(tickvals=cats, ticktext=[t.replace(" ", "<br>") for t in cats])
+            fig_type.update_xaxes(tickvals=PW_TYPES, ticktext=[t.replace(" ", "<br>") for t in PW_TYPES])
         fig_type.update_yaxes(range=[0, share["비율(%)"].max() * 1.2 if share["비율(%)"].max() > 0 else 10], title=None)
         fig_type.update_traces(textposition="outside", cliponaxis=False)
         fig_type.update_layout(
