@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.graph_objects as go
-from data import get_protocol_stats, get_hourly_by_protocol
+from data import get_protocol_stats, get_hourly_by_protocol, show_chart
 
 # 프로토콜 색상 (SSH = 파랑, Telnet = 주황)
 COLOR_SSH = "#2F80ED"
@@ -71,7 +71,7 @@ def ratio_sentence(a, b):
 for i, (col, (label, fmt)) in enumerate(zip(st.columns(4), metrics)):
     with col:
         st.markdown(f"**{label}**")
-        st.plotly_chart(make_bar(ssh[label], telnet[label], fmt),
+        show_chart(make_bar(ssh[label], telnet[label], fmt),
                         use_container_width=True, key=f"cmp_{i}")
         st.markdown(ratio_sentence(ssh[label], telnet[label]))
 
@@ -171,7 +171,7 @@ fig_line.update_layout(
     legend=dict(title=None, orientation="h", font=dict(size=14),
                 x=0.5, xanchor="center", y=1.12, yanchor="bottom"),
 )
-st.plotly_chart(fig_line, use_container_width=True)
+show_chart(fig_line, use_container_width=True)
 
 if ssh_peak == telnet_peak:
     st.markdown(f"- SSH와 Telnet 모두 **{ssh_peak}시**에 세션이 가장 많습니다.")

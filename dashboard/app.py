@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import get_protocol_stats, get_time_patterns, get_overview, get_country_distribution, COUNTRY_INFO
+from data import get_protocol_stats, get_time_patterns, get_overview, get_country_distribution, COUNTRY_INFO, show_chart
 
 # 팀 공통 색상 (색의 의미를 한곳에서 관리)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -82,7 +82,7 @@ fig_hour = px.bar(
 )
 fig_hour.update_xaxes(dtick=1)
 style_chart(fig_hour, "공격 수")
-st.plotly_chart(fig_hour, use_container_width=True)
+show_chart(fig_hour, use_container_width=True)
 
 if not hourly_data.empty and peak_value > 0:
     peak_hour = hourly_data.loc[hourly_data["공격 수"].idxmax(), "시간"]
@@ -105,4 +105,4 @@ fig_proto = px.bar(
     text_auto=True,
 )
 style_chart(fig_proto, "공격 수")
-st.plotly_chart(fig_proto, use_container_width=True)
+show_chart(fig_proto, use_container_width=True)

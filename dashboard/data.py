@@ -49,6 +49,14 @@ def fetch_data(rpc_name, mock_data, params=None):
     return pd.DataFrame(mock_data)
 
 
+def show_chart(fig, **kwargs):
+    # 휴대폰에서 그래프에 손이 닿으면 확대·이동돼서 화면 스크롤이 막혔다. 눌러서 값 보는 것만 남긴다
+    fig.update_layout(dragmode=False)
+    fig.update_xaxes(fixedrange=True)
+    fig.update_yaxes(fixedrange=True)
+    st.plotly_chart(fig, config={"displayModeBar": False, "scrollZoom": False, "doubleClick": False}, **kwargs)
+
+
 def get_overview():
     return fetch_data('get_overview', {
         "total_sessions": [20500], "unique_ips": [614],

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from data import get_time_patterns, get_overview
+from data import get_time_patterns, get_overview, show_chart
 
 # 팀 공통 색상
 COLOR_PEAK = "#E5484D"
@@ -113,7 +113,7 @@ fig_bar.update_xaxes(dtick=1, title="시간 (KST)", range=[-0.5, 23.5])
 fig_bar.update_yaxes(title=None, range=[0, hour_total.max() * 1.2])
 fig_bar.add_annotation(text="공격 수 (수집 기간 합계)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
 fig_bar.update_layout(height=420, margin=dict(t=60), showlegend=True, legend=dict(orientation="h", x=0.5, xanchor="center", y=1.12, yanchor="bottom"))
-st.plotly_chart(fig_bar, use_container_width=True)
+show_chart(fig_bar, use_container_width=True)
 
 min_val = hour_total.min()
 ratio = (hour_total.max() / min_val) if min_val > 0 else 1.0
@@ -134,7 +134,7 @@ fig_day.update_xaxes(title=None)
 fig_day.update_yaxes(title=None)
 fig_day.add_annotation(text="공격 수 (하루 평균)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
 fig_day.update_layout(height=360, margin=dict(t=40))
-st.plotly_chart(fig_day, use_container_width=True)
+show_chart(fig_day, use_container_width=True)
 st.markdown(f"- **{peak_day}요일**이 가장 많고(하루 평균 {int(day_avg.max()):,}건), **{low_day}요일**이 가장 적습니다(하루 평균 {int(day_avg.min()):,}건).")
 st.caption("빨간 막대가 공격이 가장 많은 요일입니다")
 
@@ -158,7 +158,7 @@ fig_cmp.update_xaxes(dtick=1, title="시간 (KST)", range=[-0.5, 23.5])
 fig_cmp.update_yaxes(title=None)
 fig_cmp.add_annotation(text="공격 수 (하루 평균)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
 fig_cmp.update_layout(height=380, margin=dict(t=60), legend=dict(title=None, orientation="h", x=0.5, xanchor="center", y=1.12, yanchor="bottom"))
-st.plotly_chart(fig_cmp, use_container_width=True)
+show_chart(fig_cmp, use_container_width=True)
 
 wd_peak = int(weekday_hourly.idxmax())
 we_peak = int(weekend_hourly.idxmax())
@@ -199,7 +199,7 @@ fig_pie.update_layout(showlegend=False, height=380, margin=dict(t=30, b=30, l=90
 
 left, right = st.columns([3, 2])
 with left:
-    st.plotly_chart(fig_pie, use_container_width=True)
+    show_chart(fig_pie, use_container_width=True)
 with right:
     st.markdown("#### 한눈에 보기")
     st.markdown(f"- 공격이 가장 많은 구간은 **{top_name}** ({bucket_df.loc[top_i, '비율']:.1f}%)")

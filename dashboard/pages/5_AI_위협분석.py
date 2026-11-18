@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import get_ai_threat_summary, get_ai_patterns
+from data import get_ai_threat_summary, get_ai_patterns, show_chart
 
 # 팀 공통 색상 (다른 페이지와 동일)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -105,7 +105,7 @@ with left:
     fig_intent.update_xaxes(range=[0, max_val * 1.15], title="건수")
     fig_intent.update_traces(textposition="outside", cliponaxis=False)
     fig_intent.update_layout(showlegend=False, height=340, margin=dict(t=40))
-    st.plotly_chart(fig_intent, use_container_width=True)
+    show_chart(fig_intent, use_container_width=True)
 
 with right:
     st.subheader("심각도 분포 (1~5)")
@@ -121,7 +121,7 @@ with right:
     fig_sev.update_traces(textposition="outside", cliponaxis=False)
     fig_sev.update_layout(showlegend=False, height=340, margin=dict(t=40))
     y_label_on_top(fig_sev, "건수")
-    st.plotly_chart(fig_sev, use_container_width=True)
+    show_chart(fig_sev, use_container_width=True)
 
 st.divider()
 
@@ -140,7 +140,7 @@ fig_proto.update_yaxes(range=[0, max_proto_val * 1.2])
 fig_proto.update_traces(textposition="outside", cliponaxis=False)
 fig_proto.update_layout(height=360, margin=dict(t=40), legend_title_text="")
 y_label_on_top(fig_proto, "건수")
-st.plotly_chart(fig_proto, use_container_width=True)
+show_chart(fig_proto, use_container_width=True)
 
 if not intent_by_proto.empty:
     top_by_proto = (

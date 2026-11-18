@@ -2,7 +2,7 @@ import html
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import fetch_auth_rankings
+from data import fetch_auth_rankings, show_chart
 
 # 팀 공통 색상 (1페이지와 동일)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -53,10 +53,10 @@ def show_pair(ssh_df, telnet_df):
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("🔵 SSH")
-        st.plotly_chart(rank_chart(ssh_df, COLOR_SSH, max_value), use_container_width=True)
+        show_chart(rank_chart(ssh_df, COLOR_SSH, max_value), use_container_width=True)
     with col2:
         st.subheader("🟠 Telnet")
-        st.plotly_chart(rank_chart(telnet_df, COLOR_TELNET, max_value), use_container_width=True)
+        show_chart(rank_chart(telnet_df, COLOR_TELNET, max_value), use_container_width=True)
 
 
 def chips(names, color):
@@ -165,7 +165,7 @@ with tab_pw:
                 x=0, y=1, xanchor="left", yanchor="bottom", showarrow=False,
             )],
         )
-        st.plotly_chart(fig_type, use_container_width=True)
+        show_chart(fig_type, use_container_width=True)
 
     st.divider()
     st.subheader("비밀번호 Top 10 (마스킹)")
