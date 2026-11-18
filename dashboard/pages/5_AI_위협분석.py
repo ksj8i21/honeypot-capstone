@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from dashboard.data import get_ai_threat_summary
+from data import get_ai_threat_summary, get_ai_patterns
 
 # 팀 공통 색상 (다른 페이지와 동일)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -17,45 +17,42 @@ SEVERITY_COLORS = {
 }
 
 st.title("🤖 AI 위협분석")
-st.caption("실시간 DB 집계 기준 · AI가 분류한 공격 의도와 심각도")
+st.caption("DB 집계 기준 (수집 전체 기간) · AI가 분류한 공격 의도와 심각도")
 
 # ---- DB 데이터 연동 ----
 raw_ai_df = get_ai_threat_summary()
 
-# 기본 Mock 데이터 설정 (DB 조회 실패 시 대비)
-INTENTS = ["봇넷가담", "정찰", "코인채굴", "자격증명탈취", "랜섬웨어", "기타"]
-intent_by_proto = pd.DataFrame({
-    "의도": INTENTS * 2,
-    "프로토콜": ["SSH"] * 6 + ["Telnet"] * 6,
-    "건수": [150, 190, 130, 70, 24, 31,  262, 99, 26, 28, 10, 30],
-})
-severity_data = pd.DataFrame({"심각도": [1, 2, 3, 4, 5], "건수": [180, 310, 245, 210, 105]})
-pending_count = 312  # 아직 AI가 분석하지 않은 건 (mock)
+analyzed = raw_ai_df[raw_ai_df["intent"].notna()]
+pending_count = int(raw_ai_df.loc[raw_ai_df["intent"].isna(), "cnt"].sum())
 
+intent_by_proto = (
+    analyzed.assign(프로토콜=analyzed["protocol"].map({"ssh": "SSH", "telnet": "Telnet"}))
+    .groupby(["intent", "프로토콜"], as_index=False)["cnt"].sum()
+    .rename(columns={"intent": "의도", "cnt": "건수"})
+)
+severity_data = (
+    analyzed.dropna(subset=["severity"])
+    .groupby("severity")["cnt"].sum()
+    .reindex(range(1, 6), fill_value=0)
+    .rename_axis("심각도").reset_index(name="건수")
+)
+
+patterns = get_ai_patterns()
+cases = (
+    patterns[patterns["intent"].notna()]
+    .sort_values(["severity", "sessions"], ascending=False, kind="stable")
+    .head(6)
+)
 cases = pd.DataFrame({
-    "패턴 ID": ["a1f9c2…", "f02d4e…", "3c58b7…", "9c7a10…", "7e3b81…", "b24e09…"],
-    "프로토콜": ["🟠 Telnet", "🔵 SSH", "🔵 SSH", "🟠 Telnet", "🔵 SSH", "🟠 Telnet"],
-    "의도": ["봇넷가담", "코인채굴", "랜섬웨어", "자격증명탈취", "정찰", "정찰"],
-    "심각도": [4, 5, 5, 3, 2, 1],
-    "요약": [
-        "Mirai 계열 봇넷 감염 시도, busybox 다운로드 및 실행",
-        "XMRig 마이너 설치 스크립트 실행 시도",
-        "파일을 암호화하고 금전을 요구하는 명령 실행 시도",
-        "저장된 SSH 키 및 credential 파일 탐색",
-        "시스템 정보 수집 목적의 명령 나열(uname, whoami 등)",
-        "접속 가능 여부만 확인하고 바로 종료",
-    ],
+    "패턴 ID": cases["cmd_hash"].str[:6] + "…",
+    "프로토콜": cases["protocols"].map(
+        lambda ps: ", ".join({"ssh": "🔵 SSH", "telnet": "🟠 Telnet"}.get(p, p) for p in sorted(ps))
+    ),
+    "의도": cases["intent"],
+    "심각도": cases["severity"],
+    "세션 수": cases["sessions"],
+    "요약": cases["summary"],
 })
-
-# 실제 DB 데이터 파싱 시도 (데이터가 존재할 경우)
-if not raw_ai_df.empty:
-    try:
-        # 데이터가 intent/severity 등을 포함하고 있다면 동적으로 반영할 수 있습니다.
-        if 'intent' in raw_ai_df.columns and 'cnt' in raw_ai_df.columns:
-            # 예시로 가져온 데이터 구조에 맞게 매핑
-            pass
-    except Exception as e:
-        print(f"AI threat summary parse error: {e}")
 
 severity_data["등급"] = severity_data["심각도"].map(SEVERITY_LABELS)
 
@@ -86,7 +83,8 @@ c1.metric("분석 완료", f"{done_count:,}건")
 c2.metric("분석 대기", f"{pending_count:,}건", help="아직 AI가 분석하지 않은 건입니다.")
 c3.metric("평균 심각도", f"{avg_severity:.1f} / 5")
 c4.metric("고위험(4~5) 비율", f"{high_ratio:.1f}%")
-st.caption("분석 대기: 아직 AI가 분석하지 않은 건 · AI 분석은 하루 한 번 실행됩니다.")
+st.caption("분석 대기: 아직 AI가 분석하지 않은 건")
+st.caption("건수는 공격 패턴 수가 아니라 명령을 실행한 세션 수입니다.")
 
 st.divider()
 
@@ -144,23 +142,20 @@ fig_proto.update_layout(height=360, margin=dict(t=40), legend_title_text="")
 y_label_on_top(fig_proto, "건수")
 st.plotly_chart(fig_proto, use_container_width=True)
 
-try:
+if not intent_by_proto.empty:
     top_by_proto = (
         intent_by_proto.loc[intent_by_proto.groupby("프로토콜")["건수"].idxmax()]
         .set_index("프로토콜")["의도"]
     )
     st.info(
-        f"SSH에서는 **{top_by_proto['SSH']}**, "
-        f"Telnet에서는 **{top_by_proto['Telnet']}** 의도가 가장 많이 분류되었습니다."
+        ", ".join(f"{proto}에서는 **{intent}**" for proto, intent in top_by_proto.items())
+        + " 의도가 가장 많이 분류되었습니다."
     )
-except Exception:
-    pass
 
 st.divider()
 
 # ---- 대표 공격 패턴 사례 (심각도 높은 순) ----
 st.subheader("대표 공격 패턴 사례")
-cases = cases.sort_values("심각도", ascending=False, kind="stable")
 st.dataframe(
     cases,
     use_container_width=True,

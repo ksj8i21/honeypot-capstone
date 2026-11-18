@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from dashboard.data import get_time_patterns
+from data import get_time_patterns, get_overview
 
 # 팀 공통 색상
 COLOR_PEAK = "#E5484D"
@@ -13,8 +12,8 @@ COLOR_WEEKDAY = "#5B7089"
 COLOR_WEEKEND = "#F5A623"
 
 st.title("⏰ 시간대별 패턴")
-st.caption("실시간 DB 집계 기준 · 한국 시간(KST)")
-st.caption("공격 수 = 허니팟에 기록된 공격 시도 횟수")
+st.caption("DB 집계 기준 (수집 전체 기간) · 한국 시간(KST)")
+st.caption("공격 수 = 허니팟에 기록된 접속(세션) 수")
 
 days = ["월", "화", "수", "목", "금", "토", "일"]
 hours = list(range(24))
@@ -48,34 +47,41 @@ if not raw_df.empty:
         use_mock = True
 
 if use_mock:
-    np.random.seed(42)
-    base_pattern = np.array([15,10,8,6,5,5,8,12,18,22,25,28,30,28,25,23,26,32,38,35,30,24,20,17])
-    day_factor = np.array([1.0, 1.25, 1.1, 1.15, 0.8, 0.65, 0.55])
-    noise = np.random.uniform(0.85, 1.15, size=(7, 24))
-    heatmap_data = pd.DataFrame(
-        np.outer(day_factor, base_pattern) * noise,
-        index=days, columns=hours,
-    ).round(0).astype(int)
+    st.info("표시할 시간대 데이터가 없습니다.")
+    st.stop()
+
+# ---- 수집 기간 안의 평일·주말 날짜 수 (KST 기준, 첫날·마지막 날은 수집한 시간만큼만) ----
+ov = get_overview()
+first_kst, last_kst = pd.to_datetime(ov[["first_ts", "last_ts"]].iloc[0], utc=True, format="mixed").dt.tz_convert("Asia/Seoul")
+period = pd.date_range(first_kst.date(), last_kst.date(), freq="D")
+day_frac = pd.Series(1.0, index=period)
+day_frac.iloc[0] -= (first_kst - first_kst.normalize()) / pd.Timedelta(days=1)
+day_frac.iloc[-1] -= (last_kst.normalize() + pd.Timedelta(days=1) - last_kst) / pd.Timedelta(days=1)
+n_days = day_frac.sum()
+n_weekday = day_frac[period.day_of_week < 5].sum()
+n_weekend = day_frac[period.day_of_week >= 5].sum()
+dow_days = day_frac.groupby(period.day_of_week).sum().reindex(range(7), fill_value=0).set_axis(days)
 
 # ---- 요약 숫자 계산 ----
 hour_total = heatmap_data.sum(axis=0)
 day_total = heatmap_data.sum(axis=1)
+day_avg = day_total / dow_days
 peak_hour = int(hour_total.idxmax())
 low_hour = int(hour_total.idxmin())
-peak_day = day_total.idxmax()
-low_day = day_total.idxmin()
-weekday_avg = int(day_total[days[:5]].mean()) if len(days[:5]) > 0 else 0
-weekend_avg = int(day_total[days[5:]].mean()) if len(days[5:]) > 0 else 0
+peak_day = day_avg.idxmax()
+low_day = day_avg.idxmin()
+weekday_avg = int(day_total[days[:5]].sum() / n_weekday) if n_weekday > 0 else 0
+weekend_avg = int(day_total[days[5:]].sum() / n_weekend) if n_weekend > 0 else 0
 weekend_change = (weekend_avg / weekday_avg - 1) * 100 if weekday_avg > 0 else 0
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("공격이 가장 많은 시간", f"{peak_hour}시")
-c1.caption(f"{int(hour_total.max()):,}건 (7일 합계)")
+c1.caption(f"{int(hour_total.max()):,}건 (수집 기간 합계)")
 c2.metric("공격이 가장 많은 요일", f"{peak_day}요일")
-c2.caption(f"{int(day_total.max()):,}건 (7일 합계)")
+c2.caption(f"{int(day_avg.max()):,}건 (하루 평균)")
 c3.metric("평일 하루 평균", f"{weekday_avg:,}건")
 c4.metric("주말 하루 평균", f"{weekend_avg:,}건", f"{weekend_change:+.0f}% (평일 대비)", delta_color="off")
-st.caption("평일은 5일, 주말은 2일이라 합계가 아니라 하루 평균으로 비교했습니다.")
+st.caption(f"수집 기간 {n_days:.1f}일(평일 {n_weekday:.1f}일, 주말 {n_weekend:.1f}일)의 합계를 각각의 날짜 수로 나눈 하루 평균입니다. 첫날과 마지막 날은 수집한 시간만큼만 셉니다.")
 
 st.divider()
 
@@ -105,7 +111,7 @@ fig_bar.add_trace(go.Scatter(
 ))
 fig_bar.update_xaxes(dtick=1, title="시간 (KST)", range=[-0.5, 23.5])
 fig_bar.update_yaxes(title=None, range=[0, hour_total.max() * 1.2])
-fig_bar.add_annotation(text="공격 수 (7일 합계)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
+fig_bar.add_annotation(text="공격 수 (수집 기간 합계)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
 fig_bar.update_layout(height=420, margin=dict(t=60), showlegend=True, legend=dict(orientation="h", x=0.5, xanchor="center", y=1.12, yanchor="bottom"))
 st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -119,17 +125,17 @@ st.divider()
 # ---- 막대 그래프: 요일별 공격 수 ----
 st.subheader("요일별 공격 수")
 
-day_df = pd.DataFrame({"요일": days, "공격 수": day_total.values})
+day_df = pd.DataFrame({"요일": days, "공격 수": day_avg.round().values})
 day_colors = [COLOR_PEAK if d == peak_day else COLOR_BASE for d in days]
 
 fig_day = px.bar(day_df, x="요일", y="공격 수", text_auto=True)
 fig_day.update_traces(marker_color=day_colors)
 fig_day.update_xaxes(title=None)
 fig_day.update_yaxes(title=None)
-fig_day.add_annotation(text="공격 수 (7일 합계)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
+fig_day.add_annotation(text="공격 수 (하루 평균)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
 fig_day.update_layout(height=360, margin=dict(t=40))
 st.plotly_chart(fig_day, use_container_width=True)
-st.markdown(f"- **{peak_day}요일**이 가장 많고({int(day_total.max()):,}건), **{low_day}요일**이 가장 적습니다({int(day_total.min()):,}건).")
+st.markdown(f"- **{peak_day}요일**이 가장 많고(하루 평균 {int(day_avg.max()):,}건), **{low_day}요일**이 가장 적습니다(하루 평균 {int(day_avg.min()):,}건).")
 st.caption("빨간 막대가 공격이 가장 많은 요일입니다")
 
 st.divider()
@@ -137,8 +143,8 @@ st.divider()
 # ---- 선 그래프: 평일 vs 주말 시간대 비교 ----
 st.subheader("평일 vs 주말 시간대 패턴")
 
-weekday_hourly = heatmap_data.loc[days[:5]].mean(axis=0)
-weekend_hourly = heatmap_data.loc[days[5:]].mean(axis=0)
+weekday_hourly = heatmap_data.loc[days[:5]].sum(axis=0) / max(n_weekday, 1)
+weekend_hourly = heatmap_data.loc[days[5:]].sum(axis=0) / max(n_weekend, 1)
 compare_df = pd.DataFrame({
     "시간": hours * 2,
     "구분": ["평일"] * 24 + ["주말"] * 24,
@@ -160,7 +166,7 @@ if wd_peak == we_peak:
     st.markdown(f"- 평일과 주말 모두 **{wd_peak}시**에 공격이 가장 많아, 요일과 상관없이 시간대 패턴이 비슷합니다.")
 else:
     st.markdown(f"- 평일은 **{wd_peak}시**, 주말은 **{we_peak}시**에 공격이 가장 많습니다.")
-st.caption("평일은 5일, 주말은 2일이라 시간대별 하루 평균으로 비교했습니다.")
+st.caption(f"평일 {n_weekday:.1f}일, 주말 {n_weekend:.1f}일로 나눈 시간대별 하루 평균으로 비교했습니다.")
 
 st.divider()
 

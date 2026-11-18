@@ -1,31 +1,17 @@
+import html
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from dashboard.data import get_country_distribution
+from data import get_country_distribution, COUNTRY_INFO
 
 st.title("🌍 국가별 분포")
-st.caption("실시간 DB 집계 기준 · 공격 국가 현황")
+st.caption("DB 집계 기준 (수집 전체 기간) · 공격 국가 현황")
 
 # ---- DB 데이터 연동 및 전처리 ----
 raw_df = get_country_distribution()
 
-ISO_MAP = {
-    "United States": {"alpha": "USA", "iso2": "us", "kr": "미국"},
-    "China": {"alpha": "CHN", "iso2": "cn", "kr": "중국"},
-    "Russia": {"alpha": "RUS", "iso2": "ru", "kr": "러시아"},
-    "Vietnam": {"alpha": "VNM", "iso2": "vn", "kr": "베트남"},
-    "Brazil": {"alpha": "BRA", "iso2": "br", "kr": "브라질"},
-    "India": {"alpha": "IND", "iso2": "in", "kr": "인도"},
-    "Germany": {"alpha": "DEU", "iso2": "de", "kr": "독일"},
-    "Ukraine": {"alpha": "UKR", "iso2": "ua", "kr": "우크라이나"},
-    "South Korea": {"alpha": "KOR", "iso2": "kr", "kr": "대한민국"},
-    "Korea": {"alpha": "KOR", "iso2": "kr", "kr": "대한민국"},
-    "France": {"alpha": "FRA", "iso2": "fr", "kr": "프랑스"},
-    "Iran": {"alpha": "IRN", "iso2": "ir", "kr": "이란"},
-    "Sweden": {"alpha": "SWE", "iso2": "se", "kr": "스웨덴"}
-}
-
 country_data = pd.DataFrame()
+unknown_cnt = 0
 
 if not raw_df.empty:
     try:
@@ -34,22 +20,24 @@ if not raw_df.empty:
         a_col = cols.get('attempts', cols.get('count', cols.get('공격수', list(raw_df.columns)[1])))
 
         temp_df = raw_df.copy()
-        temp_df['norm_country'] = temp_df[c_col].astype(str).str.strip()
-        temp_df['norm_attempts'] = pd.to_numeric(temp_df[a_col], errors='coerce').fillna(0)
+        temp_df['norm_attempts'] = pd.to_numeric(temp_df[a_col], errors='coerce').fillna(0).astype(int)
+        known = temp_df['country_code'].notna()
+        unknown_cnt = int(temp_df.loc[~known, 'norm_attempts'].sum())
 
-        df_sorted = temp_df.sort_values(by='norm_attempts', ascending=False).head(8).copy()
-        
+        df_sorted = temp_df[known].sort_values(by='norm_attempts', ascending=False).head(8).copy()
+
         countries_kr = []
         alphas = []
         iso2s = []
-        
+
         for _, row in df_sorted.iterrows():
-            c_name = row['norm_country']
-            info = ISO_MAP.get(c_name, {"alpha": "USA", "iso2": "us", "kr": c_name})
-            countries_kr.append(info["kr"])
-            alphas.append(info["alpha"])
-            iso2s.append(info["iso2"])
-            
+            code = str(row['country_code']).strip().upper()
+            info = COUNTRY_INFO.get(code, {})
+            en_name = row[c_col] if pd.notna(row[c_col]) else code
+            countries_kr.append(info.get("kr", en_name))
+            alphas.append(info.get("alpha"))
+            iso2s.append(code.lower())
+
         country_data = pd.DataFrame({
             "국가": countries_kr,
             "iso_alpha": alphas,
@@ -60,12 +48,8 @@ if not raw_df.empty:
         print(f"Country distribution parse error: {e}")
 
 if country_data.empty:
-    country_data = pd.DataFrame({
-        "국가": ["러시아", "중국", "미국", "베트남", "브라질", "인도", "독일", "우크라이나"],
-        "iso_alpha": ["RUS", "CHN", "USA", "VNM", "BRA", "IND", "DEU", "UKR"],
-        "iso2": ["ru", "cn", "us", "vn", "br", "in", "de", "ua"],
-        "공격 수": [924, 781, 612, 398, 301, 264, 187, 142],
-    }).sort_values("공격 수", ascending=False).reset_index(drop=True)
+    st.info("표시할 국가 데이터가 없습니다.")
+    st.stop()
 
 
 # ---- 2열 균형 레이아웃: 좌측(TOP 8 순위) / 우측(지도 + 가로 콤팩트 막대) ----
@@ -83,11 +67,12 @@ MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
 rows = []
 for rank, (_, row) in enumerate(country_data.iterrows(), start=1):
     badge = MEDALS.get(rank, f'<span class="rank-num">{rank}</span>')
+    iso2 = html.escape(row["iso2"])
     rows.append(
         '<div class="rank-row">'
         f'<span class="rank-badge">{badge}</span>'
-        f'<img class="rank-flag" src="https://flagcdn.com/w40/{row["iso2"]}.png" alt="{row["iso2"].upper()}">'
-        f'<span class="rank-name">{row["국가"]}</span>'
+        f'<img class="rank-flag" src="https://flagcdn.com/w40/{iso2}.png" alt="{iso2.upper()}">'
+        f'<span class="rank-name">{html.escape(str(row["국가"]))}</span>'
         f'<span class="rank-count">{row["공격 수"]:,}건</span>'
         '</div>'
     )
@@ -97,11 +82,13 @@ col_rank, col_map = st.columns([1, 1.4])
 with col_rank:
     st.subheader("공격 국가 순위 TOP 8")
     st.markdown(RANK_CSS + "".join(rows), unsafe_allow_html=True)
+    if unknown_cnt > 0:
+        st.caption(f"위치 정보가 없는 세션 {unknown_cnt:,}건은 순위와 지도에서 제외했습니다.")
 
 with col_map:
     # 1. 상단: 지도 (우측 우둘투둘한 범례 제거)
     fig_map = px.choropleth(
-        country_data,
+        country_data.dropna(subset=["iso_alpha"]),
         locations="iso_alpha",
         color="공격 수",
         hover_name="국가",

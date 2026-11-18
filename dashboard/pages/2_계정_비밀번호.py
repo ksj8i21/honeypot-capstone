@@ -1,7 +1,8 @@
+import html
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from dashboard.data import fetch_auth_rankings
+from data import fetch_auth_rankings
 
 # 팀 공통 색상 (1페이지와 동일)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -9,7 +10,8 @@ COLOR_TELNET = "#F5A623"   # Telnet = 주황
 COLOR_COMMON = "#8FA3B8"   # 공통 = 회색
 
 st.title("🔑 계정 · 비밀번호 Top 10")
-st.caption("실시간 DB 집계 기준")
+st.caption("DB 집계 기준 (수집 전체 기간)")
+st.caption("봇이 로그인 창에 보낸 제어 문자 섞인 입력(`enable\\x00` 등)은 집계에서 제외했습니다.")
 
 # ---- DB 데이터 연동 ----
 ssh_users = fetch_auth_rankings('ssh', 'username')
@@ -20,6 +22,8 @@ telnet_pw = fetch_auth_rankings('telnet', 'password')
 
 def mask(pw):
     """비밀번호 마스킹: 앞 2글자만 보이고 나머지는 *"""
+    if pw == "":
+        return "(빈 값)"
     if len(pw) <= 2:
         return "*" * len(pw)
     return pw[:2] + "*" * (len(pw) - 2)
@@ -62,7 +66,7 @@ def chips(names, color):
     return "".join(
         f"<span style='display:inline-block;margin:3px 6px 3px 0;padding:3px 10px;"
         f"border-radius:14px;background:{color}33;border:1px solid {color};"
-        f"font-size:14px;'>{n}</span>"
+        f"font-size:14px;'>{html.escape(n)}</span>"
         for n in names
     )
 
@@ -70,11 +74,13 @@ def chips(names, color):
 # ---- 비밀번호 유형 분류 ----
 KEYBOARD = {"qwerty", "qwerty123", "asdf", "1q2w3e", "qazwsx", "zxcvbn"}
 KNOWN_ACCOUNTS = set(ssh_users["항목"]) | set(telnet_users["항목"])
-PW_TYPES = ["숫자만", "흔한 계정명과 동일", "키보드 배열", "영문 단어", "기타"]
+PW_TYPES = ["숫자만", "흔한 계정명과 동일", "키보드 배열", "영문 단어", "빈 값", "기타"]
 
 
 def classify(pw):
     low = str(pw).lower()
+    if low == "":
+        return "빈 값"
     if low.isdigit():
         return "숫자만"
     if low in KNOWN_ACCOUNTS:

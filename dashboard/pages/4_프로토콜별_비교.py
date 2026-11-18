@@ -1,7 +1,6 @@
 import streamlit as st
-import numpy as np
 import plotly.graph_objects as go
-from dashboard.data import get_protocol_stats
+from data import get_protocol_stats, get_hourly_by_protocol
 
 # 프로토콜 색상 (SSH = 파랑, Telnet = 주황)
 COLOR_SSH = "#2F80ED"
@@ -9,40 +8,31 @@ COLOR_TELNET = "#F5A623"
 COLOR_PEAK = "#E5484D"   # 피크 = 빨강 (다른 페이지와 공통)
 
 st.title("⚖️ 프로토콜별 비교")
-st.caption("실시간 DB 집계 기준 · SSH vs Telnet")
+st.caption("DB 집계 기준 (수집 전체 기간) · SSH vs Telnet")
 st.caption("세션 = 공격자가 허니팟에 접속해서 연결이 끝날 때까지의 1회 접속")
 st.markdown("🔵 **SSH** &nbsp;&nbsp; 🟠 **Telnet**")
 
 # ---- DB 데이터 연동 ----
 proto_df = get_protocol_stats()
 
-# 기본값 설정 (DB 조회 실패 시 사용할 Mock 데이터)
-ssh = {"세션 수": 2310, "평균 체류시간": 42, "평균 명령 수": 6.8, "로그인 성공률": 18.2}
-telnet = {"세션 수": 1532, "평균 체류시간": 15, "평균 명령 수": 2.1, "로그인 성공률": 34.7}
+# 행이 없는 프로토콜 = 세션 0건
+ssh = {"세션 수": 0, "평균 체류시간": 0.0, "평균 명령 수": 0.0, "로그인 성공률": 0.0}
+telnet = dict(ssh)
 
-if not proto_df.empty:
-    try:
-        # 데이터프레임 구조에 맞춰 파싱 (예시 컬럼명 대응)
-        for _, row in proto_df.iterrows():
-            p = str(row.get('protocol', row.get('프로토콜', ''))).lower()
-            if 'ssh' in p:
-                ssh["세션 수"] = int(row.get('sessions', row.get('세션 수', ssh["세션 수"])))
-                ssh["평균 체류시간"] = float(row.get('avg_duration', row.get('평균 체류시간', ssh["평균 체류시간"])))
-                ssh["평균 명령 수"] = float(row.get('avg_commands', row.get('평균 명령 수', ssh["평균 명령 수"])))
-                ssh["로그인 성공률"] = float(row.get('success_rate', row.get('로그인 성공률', ssh["로그인 성공률"])))
-            elif 'telnet' in p:
-                telnet["세션 수"] = int(row.get('sessions', row.get('세션 수', telnet["세션 수"])))
-                telnet["평균 체류시간"] = float(row.get('avg_duration', row.get('평균 체류시간', telnet["평균 체류시간"])))
-                telnet["평균 명령 수"] = float(row.get('avg_commands', row.get('평균 명령 수', telnet["평균 명령 수"])))
-                telnet["로그인 성공률"] = float(row.get('success_rate', row.get('로그인 성공률', telnet["로그인 성공률"])))
-    except Exception as e:
-        print(f"Protocol stats parse error: {e}")
+for _, row in proto_df.iterrows():
+    p = str(row['protocol']).lower()
+    target = ssh if 'ssh' in p else telnet if 'telnet' in p else None
+    if target is not None:
+        target["세션 수"] = int(row['sessions'])
+        target["평균 체류시간"] = float(row['avg_duration'])
+        target["평균 명령 수"] = float(row['avg_commands'])
+        target["로그인 성공률"] = float(row['success_rate'])
 
 # 지표별 표시 형식 (단위 + 천 단위 쉼표)
 metrics = [
     ("세션 수", lambda v: f"{v:,.0f}건"),
     ("평균 체류시간", lambda v: f"{v:,.0f}초"),
-    ("평균 명령 수", lambda v: f"{v:,.1f}개"),
+    ("평균 명령 수", lambda v: f"{v:,.2f}개"),
     ("로그인 성공률", lambda v: f"{v:,.1f}%"),
 ]
 
@@ -95,40 +85,42 @@ st.divider()
 # ---- 한눈에 보기: 자동 생성 해석 ----
 st.subheader("한눈에 보기")
 
-more_stay = ssh["평균 체류시간"] > telnet["평균 체류시간"]
-more_cmd = ssh["평균 명령 수"] > telnet["평균 명령 수"]
-less_success = ssh["로그인 성공률"] < telnet["로그인 성공률"]
+ssh_high, telnet_high, same = [], [], []
+for label in ["평균 체류시간", "평균 명령 수", "로그인 성공률"]:
+    if ssh[label] > telnet[label]:
+        ssh_high.append(label)
+    elif telnet[label] > ssh[label]:
+        telnet_high.append(label)
+    else:
+        same.append(label)
 
-if more_stay and more_cmd and less_success:
-    st.markdown(
-        "- **Telnet**은 로그인 성공률이 더 높지만 체류시간과 명령 수가 짧고, "
-        "**SSH**는 성공률이 낮아도 오래 머물며 명령을 더 많이 실행하는 경향이 보입니다."
-    )
-    st.caption("두 프로토콜의 공격 방식이 다를 가능성을 시사할 뿐, 원인을 확정하는 결과는 아닙니다.")
+if ssh_high and telnet_high:
+    summary = f"- **SSH**는 {'·'.join(ssh_high)}에서, **Telnet**은 {'·'.join(telnet_high)}에서 더 높습니다."
+elif ssh_high or telnet_high:
+    who, highs = ("**SSH**가", ssh_high) if ssh_high else ("**Telnet**이", telnet_high)
+    summary = f"- {who} {'·'.join(highs)}에서{' 모두' if len(highs) > 1 else ''} 더 높습니다."
 else:
-    st.markdown("- 체류시간·명령 수·로그인 성공률의 방향이 엇갈려 한 문장으로 요약하기 어렵습니다.")
+    summary = "-"
+if same:
+    summary += f" {'·'.join(same)}에서는 두 프로토콜의 값이 같습니다."
+st.markdown(summary)
+st.caption("두 프로토콜의 공격 방식이 다를 가능성을 시사할 뿐, 원인을 확정하는 결과는 아닙니다.")
 
 # ---- 시간대별 세션 수 (프로토콜별) ----
 st.divider()
 st.subheader("시간대별 세션 수")
 
 hours = list(range(24))
-base_pattern = np.array([15,10,8,6,5,5,8,12,18,22,25,28,30,28,25,23,26,32,38,35,30,24,20,17])
-rng = np.random.default_rng(7)
+hourly_df = get_hourly_by_protocol()
 
 
-def scale_to_total(arr, total):
-    # 시간별 값의 합이 정확히 total이 되도록 맞추기
-    if arr.sum() == 0:
-        return np.zeros_like(arr)
-    s = np.round(arr / arr.sum() * total).astype(int)
-    s[s.argmax()] += total - s.sum()
-    return s
+def hourly_sessions(protocol):
+    part = hourly_df[hourly_df["protocol"] == protocol]
+    return part.groupby("hour_of_day")["sessions"].sum().reindex(hours, fill_value=0).to_numpy()
 
 
-ssh_hourly = scale_to_total(base_pattern * rng.uniform(0.85, 1.15, 24), ssh["세션 수"])
-telnet_hourly = scale_to_total(np.roll(base_pattern, -2) * rng.uniform(0.85, 1.15, 24),
-                               telnet["세션 수"])
+ssh_hourly = hourly_sessions("ssh")
+telnet_hourly = hourly_sessions("telnet")
 
 # 가장 많은 시간대 (그래프에 표시하려고 먼저 계산)
 ssh_peak = int(ssh_hourly.argmax())
@@ -169,7 +161,7 @@ max_val = max(ssh_hourly.max(), telnet_hourly.max())
 fig_line.update_yaxes(title=None, range=[0, max_val * 1.25 if max_val > 0 else 10],
                       tickfont=dict(size=13))
 fig_line.add_annotation(
-    text="세션 수 (24시간)",
+    text="세션 수 (수집 전체 기간, 시간대별 합계)",
     xref="paper", yref="paper",
     x=0, y=1.1,
     xanchor="left", showarrow=False,
@@ -204,11 +196,15 @@ def to_ranges(hs):
 ssh_more = [h for h in hours if ssh_hourly[h] > telnet_hourly[h]]
 telnet_more = [h for h in hours if telnet_hourly[h] > ssh_hourly[h]]
 
-if telnet_more:
+if len(telnet_more) == 24:
+    st.markdown("- 모든 시간대에서 **Telnet**이 SSH보다 세션이 많습니다.")
+elif len(ssh_more) == 24:
+    st.markdown("- 모든 시간대에서 **SSH**가 Telnet보다 세션이 많습니다.")
+elif telnet_more:
     st.markdown(
         f"- 24시간 중 **{len(ssh_more)}시간**은 SSH가, **{len(telnet_more)}시간**은 Telnet이 더 많습니다. "
         f"Telnet이 앞서는 시간대는 **{to_ranges(telnet_more)}**입니다."
     )
 else:
-    st.markdown("- 모든 시간대에서 **SSH**가 Telnet보다 세션이 많습니다.")
+    st.markdown(f"- 24시간 중 **{len(ssh_more)}시간**은 SSH가 더 많고, Telnet이 앞서는 시간대는 없습니다.")
 st.caption("빨간 점(SSH)과 빨간 막대(Telnet)가 각각 세션이 가장 많은 시간입니다.")
