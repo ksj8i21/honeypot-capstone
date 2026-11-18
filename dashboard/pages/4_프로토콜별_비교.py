@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.graph_objects as go
-from data import get_protocol_stats, get_hourly_by_protocol, show_chart, page_title
+from data import get_protocol_stats, get_hourly_by_protocol, show_chart, page_title, is_mobile
 
 # 프로토콜 색상 (SSH = 파랑, Telnet = 주황)
 COLOR_SSH = "#2F80ED"
@@ -128,7 +128,7 @@ telnet_peak = int(telnet_hourly.argmax())
 
 # Telnet 막대: 가장 많은 시간만 빨강, 나머지는 주황
 telnet_colors = [COLOR_PEAK if h == telnet_peak else COLOR_TELNET for h in hours]
-telnet_labels = ["<b>Telnet 최다</b>" if h == telnet_peak else "" for h in hours]
+telnet_labels = ["<b>Telnet 최다</b>" if h == telnet_peak and not is_mobile() else "" for h in hours]
 
 fig_line = go.Figure()
 # Telnet = 막대 (먼저 그려야 SSH 선이 막대 위에 보임)
@@ -152,7 +152,7 @@ fig_line.add_trace(go.Scatter(
     x=[ssh_peak], y=[int(ssh_hourly[ssh_peak])],
     mode="markers+text",
     marker=dict(size=14, color=COLOR_PEAK, line=dict(color="white", width=2)),
-    text=["<b>SSH 최다</b>"], textposition="top center",
+    text=[""] if is_mobile() else ["<b>SSH 최다</b>"], textposition="top center",
     textfont=dict(size=15),
     name="가장 많은 시간",
 ))

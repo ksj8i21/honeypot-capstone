@@ -68,6 +68,10 @@ def show_chart(fig, movable=False, **kwargs):
         fig.update_yaxes(fixedrange=True)
         # 확대를 꺼도 그래프 위에서는 스크롤이 안 되고 아래로 끌면 브라우저 새로고침이 떴다 (S21+ 삼성 인터넷). 폰에서는 그림으로만 그린다
         config["staticPlot"] = is_mobile()
+        if is_mobile():
+            # 폭 390px 에서 0~23시 눈금이 세로로 눕고 서로 겹쳤다. 가로로 두고 3시간 간격으로 줄인다
+            fig.update_xaxes(tickangle=0)
+            fig.for_each_xaxis(lambda ax: ax.update(dtick=3) if ax.dtick == 1 else None)
     st.plotly_chart(fig, config=config, **kwargs)
 
 

@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import get_ai_threat_summary, get_ai_patterns, show_chart, page_title
+from data import get_ai_threat_summary, get_ai_patterns, show_chart, page_title, is_mobile
 
 # 팀 공통 색상 (다른 페이지와 동일)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -102,7 +102,7 @@ with left:
     )
     fig_intent.update_yaxes(autorange="reversed", title=None)  # 1위를 위쪽에
     max_val = intent_df["건수"].max() if not intent_df.empty else 10
-    fig_intent.update_xaxes(range=[0, max_val * 1.15], title="건수")
+    fig_intent.update_xaxes(range=[0, max_val * (1.35 if is_mobile() else 1.15)], title="건수")
     fig_intent.update_traces(textposition="outside", cliponaxis=False)
     fig_intent.update_layout(showlegend=False, height=340, margin=dict(t=40))
     show_chart(fig_intent, use_container_width=True)

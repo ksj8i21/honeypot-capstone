@@ -195,7 +195,7 @@ low_name = bucket_df.loc[low_i, "구간"]
 
 fig_pie = px.pie(bucket_df, names="구간", values="공격 수", hole=0.5)
 fig_pie.update_traces(sort=False, direction="clockwise", marker=dict(colors=colors, line=dict(color="white", width=2)), pull=[0.06 if i == top_i else 0 for i in range(len(bucket_df))], textinfo="label+percent", textposition="outside")
-fig_pie.update_layout(showlegend=False, height=380, margin=dict(t=30, b=30, l=90, r=90), annotations=[dict(text=f"가장 많은 구간<br><b>{top_name.split(' ')[0]}</b>", x=0.5, y=0.5, font_size=15, showarrow=False)])
+fig_pie.update_layout(showlegend=False, height=380, margin=dict(t=30, b=30, l=90, r=90), annotations=[dict(text=f"가장 많은 구간<br><b>{top_name.split(' ')[0]}</b>", x=0.5, y=0.5, font_size=10 if is_mobile() else 15, showarrow=False)])
 
 left, right = st.columns([3, 2])
 with left:
