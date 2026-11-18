@@ -15,6 +15,7 @@ import json
 import os
 import sys
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 
 from collector.normalize import compute_cmd_hash
@@ -63,6 +64,7 @@ def to_rows(events: list[dict], sensor_id: str) -> dict[str, list[dict]]:
     client: dict[str, dict] = {}
     closed: dict[str, dict] = {}
     cmd_by_session: dict[str, list[str]] = {}
+    last_input: dict[str, dict[str, float]] = {}
     rows: dict[str, list[dict]] = {"auth_attempts": [], "commands": [], "downloads": []}
 
     for ev in events:
@@ -94,8 +96,20 @@ def to_rows(events: list[dict], sensor_id: str) -> dict[str, list[dict]]:
                 "ts": ts,
             })
         elif eid in ("cowrie.command.input", "cowrie.command.failed"):
-            cmd_by_session.setdefault(sid, []).append(ev.get("input") or "")
-            rows["commands"].append(key | {"eventid": eid, "input": ev.get("input") or "", "ts": ts})
+            text = ev.get("input") or ""
+            # 해시는 예전 규칙대로 전부 넣고 DB 행만 거른다
+            cmd_by_session.setdefault(sid, []).append(text)
+            line = text.strip()
+            if not line:
+                continue
+            # failed 는 같은 줄 input 0.01초 뒤에 또 찍혀서 11-12 에 12만 9천 행이 겹쳤음. 짝 없는 failed 는 스크립트 속 하위 명령이라 남긴다
+            t = datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+            seen = last_input.setdefault(sid, {})
+            if eid == "cowrie.command.input":
+                seen[line] = t
+            elif line in seen and t - seen[line] <= 2:
+                continue
+            rows["commands"].append(key | {"eventid": eid, "input": text, "ts": ts})
         elif eid in ("cowrie.session.file_download", "cowrie.session.file_upload",
                      "cowrie.session.file_download.failed"):
             # upload 엔 filename(sshd 등), download 엔 destfile(/dev/shm/t)만 있었음. failed 는 url 만 (10-08 원본)
