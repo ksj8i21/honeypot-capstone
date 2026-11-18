@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from data import get_time_patterns, get_overview, show_chart
+from data import get_time_patterns, get_overview, show_chart, page_title, is_mobile
 
 # 팀 공통 색상
 COLOR_PEAK = "#E5484D"
@@ -11,7 +11,7 @@ COLOR_LINE = "#2F80ED"
 COLOR_WEEKDAY = "#5B7089"
 COLOR_WEEKEND = "#F5A623"
 
-st.title("⏰ 시간대별 패턴")
+page_title("⏰ 시간대별 패턴")
 st.caption("DB 집계 기준 (수집 전체 기간) · 한국 시간(KST)")
 st.caption("공격 수 = 허니팟에 기록된 접속(세션) 수")
 
@@ -78,7 +78,7 @@ c1, c2, c3, c4 = st.columns(4)
 c1.metric("공격이 가장 많은 시간", f"{peak_hour}시")
 c1.caption(f"{int(hour_total.max()):,}건 (수집 기간 합계)")
 c2.metric("공격이 가장 많은 요일", f"{peak_day}요일")
-c2.caption(f"{int(day_avg.max()):,}건 (하루 평균)")
+c2.caption(f"{round(day_avg.max()):,}건 (하루 평균)")
 c3.metric("평일 하루 평균", f"{weekday_avg:,}건")
 c4.metric("주말 하루 평균", f"{weekend_avg:,}건", f"{weekend_change:+.0f}% (평일 대비)", delta_color="off")
 st.caption(f"수집 기간 {n_days:.1f}일(평일 {n_weekday:.1f}일, 주말 {n_weekend:.1f}일)의 합계를 각각의 날짜 수로 나눈 하루 평균입니다. 첫날과 마지막 날은 수집한 시간만큼만 셉니다.")
@@ -95,7 +95,7 @@ fig_bar = go.Figure()
 fig_bar.add_trace(go.Bar(
     x=hour_df["시간"], y=hour_df["공격 수"],
     marker_color=bar_colors,
-    text=hour_df["공격 수"],
+    text=None if is_mobile() else hour_df["공격 수"],
     textposition="outside",
     textfont=dict(size=9),
     cliponaxis=False,
@@ -135,7 +135,7 @@ fig_day.update_yaxes(title=None)
 fig_day.add_annotation(text="공격 수 (하루 평균)", xref="paper", yref="paper", x=0, y=1.1, xanchor="left", showarrow=False)
 fig_day.update_layout(height=360, margin=dict(t=40))
 show_chart(fig_day, use_container_width=True)
-st.markdown(f"- **{peak_day}요일**이 가장 많고(하루 평균 {int(day_avg.max()):,}건), **{low_day}요일**이 가장 적습니다(하루 평균 {int(day_avg.min()):,}건).")
+st.markdown(f"- **{peak_day}요일**이 가장 많고(하루 평균 {round(day_avg.max()):,}건), **{low_day}요일**이 가장 적습니다(하루 평균 {round(day_avg.min()):,}건).")
 st.caption("빨간 막대가 공격이 가장 많은 요일입니다")
 
 st.divider()

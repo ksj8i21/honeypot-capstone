@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import get_protocol_stats, get_time_patterns, get_overview, get_country_distribution, COUNTRY_INFO, show_chart
+from data import get_protocol_stats, get_time_patterns, get_overview, get_country_distribution, COUNTRY_INFO, show_chart, page_title
 
 # 팀 공통 색상 (색의 의미를 한곳에서 관리)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -11,7 +11,7 @@ COLOR_PEAK = "#E5484D"     # 피크 = 빨강
 
 st.set_page_config(page_title="허니팟 대시보드", layout="wide")
 
-st.title("🛡️ 공격 개요")
+page_title("🛡️ 공격 개요")
 
 # 상단 지표 계산 (sessions 테이블 기반 요약)
 overview = get_overview().iloc[0]

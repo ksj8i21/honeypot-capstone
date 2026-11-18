@@ -1,13 +1,13 @@
 import streamlit as st
 import plotly.graph_objects as go
-from data import get_protocol_stats, get_hourly_by_protocol, show_chart
+from data import get_protocol_stats, get_hourly_by_protocol, show_chart, page_title
 
 # 프로토콜 색상 (SSH = 파랑, Telnet = 주황)
 COLOR_SSH = "#2F80ED"
 COLOR_TELNET = "#F5A623"
 COLOR_PEAK = "#E5484D"   # 피크 = 빨강 (다른 페이지와 공통)
 
-st.title("⚖️ 프로토콜별 비교")
+page_title("⚖️ 프로토콜별 비교")
 st.caption("DB 집계 기준 (수집 전체 기간) · SSH vs Telnet")
 st.caption("세션 = 공격자가 허니팟에 접속해서 연결이 끝날 때까지의 1회 접속")
 st.markdown("🔵 **SSH** &nbsp;&nbsp; 🟠 **Telnet**")

@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import get_ai_threat_summary, get_ai_patterns, show_chart
+from data import get_ai_threat_summary, get_ai_patterns, show_chart, page_title
 
 # 팀 공통 색상 (다른 페이지와 동일)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
@@ -16,7 +16,7 @@ SEVERITY_COLORS = {
     "4 높음": "#D93A3A", "5 치명적": "#8E1B1B",
 }
 
-st.title("🤖 AI 위협분석")
+page_title("🤖 AI 위협분석")
 st.caption("DB 집계 기준 (수집 전체 기간) · AI가 분류한 공격 의도와 심각도")
 
 # ---- DB 데이터 연동 ----

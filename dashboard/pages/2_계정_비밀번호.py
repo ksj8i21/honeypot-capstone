@@ -2,14 +2,14 @@ import html
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import fetch_auth_rankings, show_chart
+from data import fetch_auth_rankings, show_chart, page_title, is_mobile
 
 # 팀 공통 색상 (1페이지와 동일)
 COLOR_SSH = "#4C8DFF"      # SSH = 파랑
 COLOR_TELNET = "#F5A623"   # Telnet = 주황
 COLOR_COMMON = "#8FA3B8"   # 공통 = 회색
 
-st.title("🔑 계정 · 비밀번호 Top 10")
+page_title("🔑 계정 · 비밀번호 Top 10")
 st.caption("DB 집계 기준 (수집 전체 기간)")
 st.caption("봇이 로그인 창에 보낸 제어 문자 섞인 입력(`enable\\x00` 등)은 집계에서 제외했습니다.")
 
@@ -38,7 +38,7 @@ def rank_chart(df, color, max_value):
         text_auto=True, color_discrete_sequence=[color],
     )
     fig.update_yaxes(autorange="reversed", title=None)
-    fig.update_xaxes(range=[0, max_value * 1.15 if max_value > 0 else 10], title="시도 횟수")
+    fig.update_xaxes(range=[0, max_value * (1.3 if is_mobile() else 1.15) if max_value > 0 else 10], title="시도 횟수")
     fig.update_traces(textposition="outside", cliponaxis=False)
     fig.update_layout(margin=dict(t=10), showlegend=False, height=420)
     return fig

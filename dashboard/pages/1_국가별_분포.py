@@ -2,9 +2,9 @@ import html
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data import get_country_distribution, COUNTRY_INFO, show_chart
+from data import get_country_distribution, COUNTRY_INFO, show_chart, page_title
 
-st.title("🌍 국가별 분포")
+page_title("🌍 국가별 분포")
 st.caption("DB 집계 기준 (수집 전체 기간) · 공격 국가 현황")
 
 # ---- DB 데이터 연동 및 전처리 ----
@@ -97,7 +97,7 @@ with col_map:
     )
     fig_map.update_coloraxes(showscale=False)  # 범례 제거로 정돈된 느낌 부여
     fig_map.update_layout(margin=dict(l=0, r=0, t=10, b=10), height=250)
-    show_chart(fig_map, use_container_width=True)
+    show_chart(fig_map, movable=True, use_container_width=True)
 
     # 2. 하단: 지도 직하단에 들어가는 가로 막대 그래프 (정돈된 시각화)
     fig_bar = px.bar(

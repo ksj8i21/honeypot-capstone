@@ -49,12 +49,26 @@ def fetch_data(rpc_name, mock_data, params=None):
     return pd.DataFrame(mock_data)
 
 
-def show_chart(fig, **kwargs):
-    # 휴대폰에서 그래프에 손이 닿으면 확대·이동돼서 화면 스크롤이 막혔다. 눌러서 값 보는 것만 남긴다
-    fig.update_layout(dragmode=False)
-    fig.update_xaxes(fixedrange=True)
-    fig.update_yaxes(fixedrange=True)
-    st.plotly_chart(fig, config={"displayModeBar": False, "scrollZoom": False, "doubleClick": False}, **kwargs)
+def is_mobile():
+    return "Mobi" in st.context.headers.get("User-Agent", "")
+
+
+def page_title(text):
+    # 휴대폰 폭에서 제목이 '프로토콜별 비 / 교' 처럼 낱말 중간에서 끊겼다. 낱말 단위로만 줄바꿈하고 글자를 줄인다
+    st.html("<style>h1,h2,h3,p,li{word-break:keep-all!important}@media (max-width:640px){h1{font-size:1.9rem!important}}</style>")
+    st.title(text)
+
+
+def show_chart(fig, movable=False, **kwargs):
+    # 휴대폰에서 그래프에 손이 닿으면 확대·이동돼서 화면 스크롤이 막혔다. 지도만 movable 로 움직이게 둔다
+    config = {"displayModeBar": False, "scrollZoom": movable, "doubleClick": "reset" if movable else False}
+    if not movable:
+        fig.update_layout(dragmode=False)
+        fig.update_xaxes(fixedrange=True)
+        fig.update_yaxes(fixedrange=True)
+        # 확대를 꺼도 그래프 위에서는 스크롤이 안 되고 아래로 끌면 브라우저 새로고침이 떴다 (S21+ 삼성 인터넷). 폰에서는 그림으로만 그린다
+        config["staticPlot"] = is_mobile()
+    st.plotly_chart(fig, config=config, **kwargs)
 
 
 def get_overview():
