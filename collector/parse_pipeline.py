@@ -96,11 +96,14 @@ def to_rows(events: list[dict], sensor_id: str) -> dict[str, list[dict]]:
         elif eid in ("cowrie.command.input", "cowrie.command.failed"):
             cmd_by_session.setdefault(sid, []).append(ev.get("input") or "")
             rows["commands"].append(key | {"eventid": eid, "input": ev.get("input") or "", "ts": ts})
-        elif eid == "cowrie.session.file_download":
+        elif eid in ("cowrie.session.file_download", "cowrie.session.file_upload",
+                     "cowrie.session.file_download.failed"):
+            # upload 엔 filename(sshd 등), download 엔 destfile(/dev/shm/t)만 있었음. failed 는 url 만 (10-08 원본)
             rows["downloads"].append(key | {
                 "eventid": eid,
                 "url": ev.get("url"),
-                "shasum": ev.get("shasum"),
+                "shasum": ev.get("shasum") or None,
+                "filename": ev.get("filename") or ev.get("destfile") or None,
                 "ts": ts,
             })
 

@@ -1,21 +1,27 @@
+"""Batch 요청 만들기 / 결과 회수해서 ai_analysis 에 저장 (작업가이드 4-3, 4-4)."""
+
 import json
+from collections.abc import Iterator
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 import anthropic
 from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
 from anthropic.types.messages.batch_create_params import Request
 from supabase import Client
 
-# 기본 설정 및 모델 정의
-MODEL_NAME = "claude-haiku-4-5"
-PROMPT_PATH = Path("analyzer/prompts/session_intent.md")
+MODEL_NAME = "claude-haiku-4-5"  # 예산안 기준
+MAX_TOKENS = 1024
 CHUNK_SIZE = 500
+# 페이로드가 통째로 명령 칸에 들어오는 경우가 있어서 한 요청 입력을 제한 (비용 상한)
+MAX_COMMAND_CHARS = 8000
 
-# DB CHECK 제약과 일치하는 6가지 intent 목록
+# 실행 위치(cwd)와 상관없이 찾도록 이 파일 기준 경로
+PROMPT_PATH = Path(__file__).parent / "prompts" / "session_intent.md"
+
+# DB CHECK 제약과 같아야 함 (db/01_schema.sql)
 INTENTS = ["코인채굴", "봇넷가담", "정찰", "자격증명탈취", "랜섬웨어", "기타"]
 
-# Structured Outputs를 위한 JSON Schema
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -30,121 +36,100 @@ SCHEMA = {
 
 
 def load_prompt() -> str:
-    """시스템 프롬프트 파일(session_intent.md)을 읽어옵니다."""
-    if not PROMPT_PATH.exists():
-        raise FileNotFoundError(f"시스템 프롬프트 파일을 찾을 수 없습니다: {PROMPT_PATH}")
     return PROMPT_PATH.read_text(encoding="utf-8")
 
 
-def chunk_list(lst: List[Any], size: int):
-    """리스트를 지정한 크기(CHUNK_SIZE) 단위로 분할합니다."""
-    for i in range(0, len(lst), size):
-        yield lst[i : i + size]
+def chunks(items: list[dict], size: int = CHUNK_SIZE) -> Iterator[list[dict]]:
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
 
 
-def create_and_submit_batch(
-    client: anthropic.Anthropic, rows: List[Dict[str, Any]]
-) -> Optional[str]:
-    """
-    선별된 세션 목록을 받아서 Anthropic Batch API에 제출하고 batch_id를 반환합니다.
-    """
-    if not rows:
-        print("[classify.py] 제출할 분석 대상이 없습니다.")
-        return None
+def build_user_message(row: dict[str, Any]) -> str:
+    commands = str(row["commands"])
+    if len(commands) > MAX_COMMAND_CHARS:
+        commands = commands[:MAX_COMMAND_CHARS] + "\n...(truncated)"
+    # 공격자 입력을 태그로 감싸서 프롬프트 지시문과 구분 (프롬프트 0절)
+    return f"protocol: {row.get('protocol') or 'unknown'}\n<commands>\n{commands}\n</commands>"
 
-    prompt_text = load_prompt()
 
-    # Ephemeral Cache Control 설정 (4,096 토큰 이상 시 프롬프트 캐싱 적용)
-    system_prompt = [
-        {
-            "type": "text",
-            "text": prompt_text,
-            "cache_control": {"type": "ephemeral"},
-        }
-    ]
-
-    requests = [
+def build_requests(rows: list[dict[str, Any]]) -> list[Request]:
+    # 모든 요청이 같은 system 을 써야 캐시가 공유됨. 날짜 등 바뀌는 값 넣지 말 것
+    system = [{"type": "text", "text": load_prompt(), "cache_control": {"type": "ephemeral"}}]
+    return [
         Request(
             custom_id=row["cmd_hash"],
             params=MessageCreateParamsNonStreaming(
                 model=MODEL_NAME,
-                max_tokens=1024,
-                system=system_prompt,
-                output_config={
-                    "format": {
-                        "type": "json_schema",
-                        "schema": SCHEMA,
-                    }
-                },
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"protocol: {row['protocol']}\ncommands:\n{row['commands']}",
-                    }
-                ],
+                max_tokens=MAX_TOKENS,
+                system=system,
+                output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
+                messages=[{"role": "user", "content": build_user_message(row)}],
             ),
         )
         for row in rows
     ]
 
-    print(f"[classify.py] 총 {len(requests)}건의 요청을 Anthropic Batch API에 제출합니다...")
-    batch = client.messages.batches.create(requests=requests)
-    print(f"[classify.py] Batch 생성 완료 (Batch ID: {batch.id})")
 
+def submit_batch(client: anthropic.Anthropic, rows: list[dict[str, Any]]) -> str:
+    batch = client.messages.batches.create(requests=build_requests(rows))
+    print(f"[classify] batch 제출: {batch.id} ({len(rows)}건)")
     return batch.id
 
 
-def fetch_and_save_batch_results(
-    client: anthropic.Anthropic, sb: Client, batch_id: str
-) -> bool:
-    """
-    제출된 Batch ID의 상태를 확인하고, 완료 시 결과를 회수하여 Supabase ai_analysis 테이블에 저장합니다.
+def parse_result(custom_id: str, msg) -> dict[str, Any] | None:
+    """성공 응답 1건을 ai_analysis 행으로. 형식이 깨졌으면 None (다음 날 재분석됨)."""
+    if msg.stop_reason != "end_turn":
+        # max_tokens 로 잘렸거나 refusal 이면 JSON 이 불완전할 수 있음
+        print(f"[classify] {custom_id}: stop_reason={msg.stop_reason}, 건너뜀")
+        return None
+    text = next((b.text for b in msg.content if b.type == "text"), "")
+    try:
+        out = json.loads(text)
+    except json.JSONDecodeError:
+        print(f"[classify] {custom_id}: JSON 파싱 실패, 건너뜀")
+        return None
+    if out.get("intent") not in INTENTS or out.get("severity") not in (1, 2, 3, 4, 5):
+        print(f"[classify] {custom_id}: 스키마 밖 값 {out.get('intent')!r}/{out.get('severity')!r}, 건너뜀")
+        return None
+    return {
+        "cmd_hash": custom_id,
+        "intent": out["intent"],
+        "severity": out["severity"],
+        "summary": out.get("summary", ""),
+        "ttp": [str(t) for t in out.get("ttp", [])],
+        "model": msg.model,
+        "tokens_in": msg.usage.input_tokens,
+        "tokens_out": msg.usage.output_tokens,
+    }
 
-    - 처리 완료 및 DB 저장 성공 시: True 반환
-    - 아직 진행 중인 경우: False 반환
-    """
-    print(f"[classify.py] Batch 상태 확인 중... (Batch ID: {batch_id})")
+
+def collect_batch(client: anthropic.Anthropic, sb: Client, batch_id: str) -> bool:
+    """batch 가 끝났으면 결과를 저장하고 True, 아직이면 False."""
     batch = client.messages.batches.retrieve(batch_id)
-
     if batch.processing_status != "ended":
-        print(
-            f"[classify.py] Batch가 아직 처리 중입니다. (현재 상태: {batch.processing_status})"
-        )
+        print(f"[classify] batch {batch_id} 진행 중 ({batch.processing_status})")
         return False
 
-    print("[classify.py] Batch 작업이 완료되었습니다. 결과를 회수합니다.")
-    rows_to_upsert = []
-
+    rows: list[dict[str, Any]] = []
+    failed = cache_read = cache_write = 0
     for r in client.messages.batches.results(batch_id):
-        # 성공(succeeded)하지 않은 항목(errored, expired 등)은 건너뜀
-        # DB에 저장되지 않으므로 다음 날 pick_ai_targets에서 자동으로 다시 추출됨
+        # errored / canceled / expired 는 저장 안 함 → ai_analysis 에 없으니 다음 날 다시 뽑힘
         if r.result.type != "succeeded":
+            failed += 1
             continue
-
         msg = r.result.message
-        text = next(b.text for b in msg.content if b.type == "text")
-        out = json.loads(text)
+        cache_read += msg.usage.cache_read_input_tokens or 0
+        cache_write += msg.usage.cache_creation_input_tokens or 0
+        row = parse_result(r.custom_id, msg)
+        if row is None:
+            failed += 1
+        else:
+            rows.append(row)
 
-        rows_to_upsert.append({
-            "cmd_hash": r.custom_id,
-            "intent": out["intent"],
-            "severity": out["severity"],
-            "summary": out["summary"],
-            "ttp": out["ttp"],
-            "model": msg.model,
-            "tokens_in": msg.usage.input_tokens,
-            "tokens_out": msg.usage.output_tokens,
-        })
+    for chunk in chunks(rows):
+        sb.table("ai_analysis").upsert(chunk, on_conflict="cmd_hash", ignore_duplicates=True).execute()
 
-    if rows_to_upsert:
-        print(f"[classify.py] 총 {len(rows_to_upsert)}건의 분석 결과를 ai_analysis 테이블에 저장합니다.")
-        # 500개 단위 Chunking Upsert
-        for chunk in chunk_list(rows_to_upsert, CHUNK_SIZE):
-            sb.table("ai_analysis").upsert(
-                chunk, on_conflict="cmd_hash", ignore_duplicates=True
-            ).execute()
-        print("[classify.py] ai_analysis 테이블 저장 완료.")
-    else:
-        print("[classify.py] 회수하여 저장할 성공(succeeded) 결과가 없습니다.")
-
+    print(f"[classify] batch {batch_id} 회수: 저장 {len(rows)}건, 실패/건너뜀 {failed}건")
+    # 0 이면 프롬프트가 캐시 최소 길이(Haiku 4.5: 4,096 토큰)보다 짧거나 캐시가 안 먹은 것
+    print(f"[classify] cache_read_input_tokens={cache_read}, cache_creation_input_tokens={cache_write}")
     return True
