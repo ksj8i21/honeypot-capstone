@@ -145,3 +145,15 @@ REVOKE EXECUTE ON FUNCTION public.get_protocol_stats() FROM public, anon, authen
 REVOKE EXECUTE ON FUNCTION public.get_auth_usernames(text) FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_auth_passwords(text) FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_ai_threat_summary() FROM public, anon, authenticated;
+
+-- API 기본 제한은 8초. Streamlit Cloud 배포 직후 첫 호출이 여기에 걸려 예시 데이터가 나왔다 (11-18 23:42 Postgres 로그에 statement timeout 4번)
+-- 함수에 걸어 둔 statement_timeout 은 PostgREST 가 호출할 때 그대로 적용한다
+ALTER FUNCTION public.get_overview() SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_country_distribution() SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_top_auth_attempts() SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_time_patterns() SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_hourly_by_protocol() SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_protocol_stats() SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_auth_usernames(text) SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_auth_passwords(text) SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_ai_threat_summary() SET statement_timeout TO '30s';
